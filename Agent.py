@@ -11,11 +11,25 @@ class Agent():
         self.num_states = (map_x / res) * (map_y / res)
         self.Q = np.zeros(self.num_states, self.num_actions)
 
-    def move(self, step):
-        self.pos += step
+    def move(self, step, noise_flag=False, wind_flag=False):
+        noise_step = np.array([0.0,0.0])
+
+        if noise_flag:
+            # noise_step += np.random.normal(0,0.1*np.linalg.norm(step),len(step))
+            p = np.random.randint(1, 11)
+            if p == 10:
+                noise_step = -1 * np.copy(step)
+        if wind_flag:
+            # noise_step += np.array([
+            #     np.random.normal(0.01,0.1*np.linalg.norm(step),1)[0],
+            #     0])
+            p = np.random.randint(1, 4)
+            if p == 1:
+                noise_step += np.array([np.linalg.norm(step), 0])
+        self.pos += np.copy(step + noise_step)
         self.traj = np.append(self.traj, [self.pos], 0)
         
-    def Q_learning(sample, gamma=.5, lr=.5):
+    def Q_learning(self, sample, gamma=.5, lr=.5):
         # sample = {'s':val, 'a': val, 'r': val, 'sp': val}
         self.Q[sample['s'],sample['a']] = ((1-lr)*self.Q[sample['s'],sample['a']] +
                                            lr*(row['r'] + action_reward[sample['a']] +

@@ -29,7 +29,9 @@ def hooke_jeeves(agents):
                  np.array([0.0, step]), np.array([0.0, -step])]
     # base cost
     best_cost = cost_functions.cost_to_destination(agents)
-    while best_cost > 0.5:
+    count = 0
+    while best_cost > 1:
+        count += 1
         for idx, a in enumerate(agents):
             best_step = np.array([0.0, 0.0])
             # step in each direction
@@ -41,7 +43,9 @@ def hooke_jeeves(agents):
                 if s_cost < best_cost:
                     best_cost = s_cost
                     best_step = s
-            a.move(best_step)
+            a.move(best_step, True, True)
+            best_cost = cost_functions.cost_to_destination(agents)
+    print(count)
 
 def random_exploration(agents):
     grid_res = 0.1 # TODO: decide resolution of grid squares
@@ -75,7 +79,7 @@ def random_exploration(agents):
             baseline_cost = cost_functions.cost_to_destination(agents)
             current_pos = ag.pos
             # TODO: convert raw pos values into grid square indices, then convert to linear index for Q(s,a)
-            state =
+            state = 0
 
             step_index = np.random.randint(4) # randomly choose from steps 0,1,2,3
             # step_size = np.random.randint(1,6) # randomly choose number of grid squares to move from 1,2,3,4,5
@@ -146,6 +150,7 @@ def approximate_Q(agents, Q):
                     ag.Q(s, a) = ag.Q(best_neighbor, a)
 
                     # TODO: Implement nearest neighbors (see textbook Algorithm 8.2) -- Done?
+
     return Q
 
 def Q_learning(agents):
@@ -203,6 +208,10 @@ def main():
     for idx in range(agent_count):
         pos = np.array([np.cos(idx*np.pi/6), np.sin(idx*np.pi/6)])
         des_pos = np.array([10*np.cos((idx+6)*np.pi/6), 10*np.sin((idx+6)*np.pi/6)])
+        # spiral
+        pos = np.array([0.0, 0.0])
+        des_pos = np.array([idx*np.cos((idx+6)*np.pi/6), idx*np.sin((idx+6)*np.pi/6)])
+
         #des_pos = np.array([x[idx], y[idx]])
         agents[idx] = Agent.Agent(pos, des_pos)
 
