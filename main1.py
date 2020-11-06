@@ -112,7 +112,7 @@ def grid_world_to_state(world_shape, px,py,res=.1):
     
     return state
     
-def state_to_grid_world(world_shape, state, res.1):
+def state_to_grid_world(world_shape, state, res=.1):
     update_world_shape = int(world_shape/res)
     pos = np.unravel_index(state,update_world_shape)*.1 #pos = (x,y) in true world coordinates
     
@@ -132,8 +132,20 @@ def approximate_Q(agents, Q):
     for idx, ag in enumerate(agents):
         for s in range(num_states):
             for a in range(num_actions):
-                if Q(idx, s, a) == 0:
-                    # TODO: Implement nearest neighbors (see textbook Algorithm 8.2)
+
+                if ag.Q(s, a) == 0:
+                    current_world_coords = grid_world_to_state(world_shape, s) # TODO: decide world shape to pass in here
+                    possible_neighbors = [s for s in range(num_states) if ag.Q(s,a)!=0]
+                    num_possible_neighbors = len(possible_neighbors)
+                    distances = np.zeros(num_possible_neighbors)
+                    for i in range(num_possible_neighbors):
+                        neighbor_world_coords = state_to_grid_world(possible_neighbors[i])
+                        distances[i] = np.linalg.norm(current_world_coords - neighbor_world_coords)
+
+                    best_neighbor = argmin(distances)
+                    ag.Q(s, a) = ag.Q(best_neighbor, a)
+
+                    # TODO: Implement nearest neighbors (see textbook Algorithm 8.2) -- Done?
     return Q
 
 def Q_learning(agents):
