@@ -103,6 +103,20 @@ def random_exploration(agents):
     from the baseline to get the incremental cost associated with that individual agent
     '''
     return Q
+    
+def grid_world_to_state(world_shape, px,py,res=.1):
+    update_x = int(px/res)
+    update_y = int(py/res)
+    update_world_shape = int(world_shape/res)
+    state = np.ravel_multi_index((update_x,update_y), update_world_shape)
+    
+    return state
+    
+def state_to_grid_world(world_shape, state, res.1):
+    update_world_shape = int(world_shape/res)
+    pos = np.unravel_index(state,update_world_shape)*.1 #pos = (x,y) in true world coordinates
+    
+    return pos
 
 def approximate_Q(agents, Q):
     '''
