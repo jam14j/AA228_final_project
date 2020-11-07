@@ -28,8 +28,3 @@ class Agent():
                 noise_step += np.array([np.linalg.norm(step), 0])
         self.pos += np.copy(step + noise_step)
         self.traj = np.append(self.traj, [self.pos], 0)
-        
-    def Q_learning(self, sample, gamma=.5, lr=.5):
-        # sample = {'s':val, 'a': val, 'r': val, 'sp': val}
-        self.Q[sample['s'],sample['a']] = ((1-lr)*self.Q[sample['s'],sample['a']] +
-                                           lr*(-1*sample['r'] + gamma*self.Q[sample['sp'],:].max()))
