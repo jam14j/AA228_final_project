@@ -32,5 +32,4 @@ class Agent():
     def Q_learning(self, sample, gamma=.5, lr=.5):
         # sample = {'s':val, 'a': val, 'r': val, 'sp': val}
         self.Q[sample['s'],sample['a']] = ((1-lr)*self.Q[sample['s'],sample['a']] +
-                                           lr*(row['r'] + action_reward[sample['a']] +
-                                           gamma*self.Q[sample['sp'],:].max()))
+                                           lr*(-1*sample['r'] + gamma*self.Q[sample['sp'],:].max()))
