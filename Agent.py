@@ -9,7 +9,7 @@ class Agent():
         self.des_pos = des_pos.copy()
         self.num_actions = act_num
         self.num_states = (map_x / res) * (map_y / res)
-        self.Q = np.zeros(self.num_states, self.num_actions)
+
 
     def move(self, step, noise_flag=False, wind_flag=False):
         noise_step = np.array([0.0,0.0])
