@@ -1,5 +1,6 @@
 import numpy as np
 import cost_functions
+from sklearn.neighbors import NearestNeighbors
 
 
 def Q_learning(ag, sample, gamma = .5, lr = .5):
@@ -97,34 +98,49 @@ def approximate_Q(agents):
     After exploration, we know that any Q(s,a)=0 has not been visited, and we should approximate this entry with
     the existing data that we collected. The simplest method of this approximation is nearest-neighbor (k=1).
     '''
-
+    full_map = [[agents[0].res*i,agents[0].res*j]
+                    for j in range(agents[0].map_y)
+                    for i in range(agents[0].map_x)]
     (num_states, num_actions) = agents[0].Q.shape
     for idx, ag in enumerate(agents):
+        print(f"idx: {idx}")
         for s in range(num_states):
             for a in range(num_actions):
 
                 if ag.Q[s, a] == 0:
-                    current_world_coords = state_to_grid_world((ag.map_x/ag.res,
-                                                                ag.map_y/ag.res),
-                                                               s)  # TODO: decide world shape to pass in here
-                    possible_neighbors = [s for s in range(num_states) if ag.Q[s, a] != 0]
-                    num_possible_neighbors = len(possible_neighbors)
-                    distances = np.zeros(num_possible_neighbors)
-                    for i in range(num_possible_neighbors):
-                        neighbor_world_coords = state_to_grid_world((ag.map_x/ag.res,
-                                                                    ag.map_y/ag.res),
-                                                                    possible_neighbors[i])
-                        distances[i] = np.linalg.norm(current_world_coords - neighbor_world_coords)
+                    current_world_coords = state_to_grid_world((ag.map_x,ag.map_y), s)
+                    neigh_flag = False
+                    radius_multiplier = 1
+                    while not neigh_flag:
+                        neigh_model = NearestNeighbors(radius=ag.res*radius_multiplier)
+                        neigh_model.fit(full_map)
+                        rng = neigh_model.radius_neighbors([current_world_coords], sort_results=True)
+                        radius_multiplier += 1
+                        for neigh_idx in rng[1][0]:
+                            neigh_coord = full_map[neigh_idx]
+                            neigh_state = grid_world_to_state((ag.map_x,ag.map_y), *neigh_coord)
+                            if ag.Q[neigh_state, a] != 0:
+                                ag.Q[s, a] = ag.Q[neigh_state, a]
+                                neigh_flag = True
 
-                    best_neighbor = np.argmin(distances)
-                    ag.Q[s, a] = ag.Q[best_neighbor, a]
+                    # possible_neighbors = [s for s in range(num_states) if ag.Q[s, a] != 0]
+                    # num_possible_neighbors = len(possible_neighbors)
+                    # distances = np.zeros(num_possible_neighbors)
+                    # for i in range(num_possible_neighbors):
+                    #     neighbor_world_coords = state_to_grid_world((ag.map_x/ag.res,
+                    #                                             ag.map_y/ag.res),
+                    #                                             possible_neighbors[i])
+                    #     distances[i] = np.linalg.norm(current_world_coords - neighbor_world_coords)
+                    #
+                    # best_neighbor = np.argmin(distances)
+                    # ag.Q[s, a] = ag.Q[best_neighbor, a]
 
 
 def Q_main(agents):
     print("EXPLORING!")
     random_exploration(agents)
     print("NEIGHBORS!")
-    approximate_Q(agents)
+    # approximate_Q(agents)
 
     '''
     We have two options here: 
@@ -175,10 +191,12 @@ def execute_policy(agents):
     step_list = [np.array([agents[0].res, 0.0]), np.array([-agents[0].res, 0.0]),
                  np.array([0.0, agents[0].res]), np.array([0.0, -agents[0].res])]
     cost = cost_functions.cost_to_destination(agents)
-    while cost > 1:
+    count = 0
+    while cost > 1 and count < 500:
+        count += 1
         for ag in agents:
             state = grid_world_to_state((ag.map_x, ag.map_y), *ag.pos)
-            step_idx = ag.Pi[state]
+            step_idx = int(ag.Pi[state])
             ag.move(step_list[step_idx])
         cost = cost_functions.cost_to_destination(agents)
 
