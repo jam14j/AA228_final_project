@@ -1,5 +1,4 @@
 import Agent
-import cost_functions
 import numpy as np
 import matplotlib.pyplot as plt
 import algorithms as alg
@@ -15,7 +14,6 @@ def print_agents(agents):
 
 def plot_agents(agents):
     for a in agents:
-        print(a.ini_pos)
         plt.plot(a.ini_pos[0], a.ini_pos[1], 'bo')
         plt.plot(a.traj[:,0], a.traj[:,1])
         plt.plot(a.des_pos[0], a.des_pos[1], 'r*')
@@ -34,6 +32,8 @@ def main():
     agent_count = 12
     agents = [0.0 for _ in range(agent_count)]
 
+    pos_array = np.zeros((len(agents), 2))
+    des_pos_array = np.zeros((len(agents), 2))
     for idx in range(agent_count):
         pos = np.array([np.cos(idx*np.pi/6), np.sin(idx*np.pi/6)])
         des_pos = np.array([10*np.cos((idx+6)*np.pi/6), 10*np.sin((idx+6)*np.pi/6)])
@@ -43,9 +43,22 @@ def main():
 
         #des_pos = np.array([x[idx], y[idx]])
         agents[idx] = Agent.Agent(pos, des_pos)
+        pos_array[idx, :] = agents[idx].pos
+        des_pos_array[idx, :] = agents[idx].des_pos
 
-    alg.hooke_jeeves(agents)
-    # Q_learning(agents)
+    min_pos = np.min(pos_array)
+    min_des_pos = np.min(des_pos_array)
+    # print(f"min_des: {min_pos}\nmin_des_pos: {min_des_pos}")
+    min_value = np.abs(np.min((min_pos,min_des_pos)))
+
+    for a in agents:
+        a.traj[0,:] += np.array([min_value, min_value])
+        a.ini_pos += np.array([min_value, min_value])
+        a.pos += np.array([min_value, min_value])
+        a.des_pos += np.array([min_value, min_value])
+
+    # alg.hooke_jeeves(agents)
+    alg.Q_main(agents)
     plot_agents(agents)
 
 if __name__ == "__main__":

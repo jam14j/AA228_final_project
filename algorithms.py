@@ -9,7 +9,7 @@ def Q_learning(Q, sample, gamma = .5, lr = .5):
 
 
 def random_exploration(agents):
-    grid_res = 0.1  # TODO: decide resolution of grid squares
+    grid_res = 0.1
     step_list = [np.array([grid_res, 0.0]), np.array([-grid_res, 0.0]),
                  np.array([0.0, grid_res]), np.array([0.0, -grid_res])]
 
@@ -27,33 +27,36 @@ def random_exploration(agents):
     '''
 
     # Initialize Q
-    # TODO: decide how big we want our grid to be. Easiest to keep this constant for all formations; I used [-10,10] for now
     grid_length_x = 20
     grid_length_y = 20
     num_states = (grid_length_x / grid_res) * (grid_length_y / grid_res)
     num_actions = 4
-    Q = np.zeros([len(agents), num_states, num_actions])  # Q[i, :, :] is Q matrix for the ith agent
+    # Q = np.zeros([len(agents), num_states, num_actions])  # Q[i, :, :] is Q matrix for the ith agent
 
-    k_max = 100  # number of exploration steps/iterations; we should experiment with this value
+    k_max = 10000  # number of exploration steps/iterations; we should experiment with this value
     for k in range(k_max):
         for idx, ag in enumerate(agents):
             baseline_cost = cost_functions.cost_to_destination(agents)
             current_pos = ag.pos
-            # TODO: convert raw pos values into grid square indices, then convert to linear index for Q(s,a)
-            state = 0
+            state = grid_world_to_state((grid_length_x,
+                                         grid_length_y),
+                                         *current_pos)
 
             step_index = np.random.randint(4)  # randomly choose from steps 0,1,2,3
             # step_size = np.random.randint(1,6) # randomly choose number of grid squares to move from 1,2,3,4,5
             step_size = 1  # right now we are only stepping to adjacent grid squares
             random_step = step_size * step_list[step_index]
             ag.move(random_step)
+            # grid_world_to_state((grid_length_x / grid_res,
+            #                      grid_length_y / grid_res),
+            #                     *ag.pos)
             # TODO: convert new state value to linear index, as above. Perhaps we should store this in the agent directly?
 
             new_cost = cost_functions.cost_to_destination(agents)
             cost_difference = new_cost - baseline_cost
 
             action = step_index
-            Q[idx, state, action] = cost_difference
+            ag.Q[state, action] = cost_difference
 
             # Update Q somewhere around here, on each exploration step
             # We'll need to convert 2D grid states to linear index of states
@@ -67,18 +70,18 @@ def random_exploration(agents):
     depends on agent states, not the actions themselves. Do each action to get a new cost, and subtract this cost
     from the baseline to get the incremental cost associated with that individual agent
     '''
-    return Q
+    # return Q
 
 def grid_world_to_state(world_shape, px, py, res=.1):
     update_x = int(px / res)
     update_y = int(py / res)
-    update_world_shape = int(world_shape / res)
+    update_world_shape = (int(world_shape[0] / res), int(world_shape[1] / res))
     state = np.ravel_multi_index((update_x, update_y), update_world_shape)
 
     return state
 
 def state_to_grid_world(world_shape, state, res=.1):
-    update_world_shape = int(world_shape / res)
+    update_world_shape = (int(world_shape[0] / res), int(world_shape[1] / res))
     pos = np.unravel_index(state, update_world_shape) * .1  # pos = (x,y) in true world coordinates
 
     return pos
@@ -115,9 +118,9 @@ def approximate_Q(agents, Q):
 
     return Q
 
-def Q_learning_main(agents):
-    Q = random_exploration(agents)
-    Q = approximate_Q(agents, Q)
+def Q_main(agents):
+    random_exploration(agents)
+    # Q = approximate_Q(agents, Q)
 
     '''
     We have two options here: 
@@ -151,11 +154,10 @@ def Q_learning_main(agents):
     '''
 
     # Option 1: Find fixed policy from Q
-    num_states = Q.shape[1]  # Q.shape = (num_agents, num_states, num_actions)
-    Pi = np.zeros(num_states)
-    for s in range(num_states):
-        best_action = np.argmax(Q[s, :])
-        Pi[s] = best_action  # this indexes the action in the list of action moves
+    for ag in agents:
+        for s in range(ag.num_states):
+            best_action = np.argmax(ag.Q[s, :])
+            ag.Pi[s] = best_action  # this indexes the action in the list of action moves
 
 
 def hooke_jeeves(agents):
