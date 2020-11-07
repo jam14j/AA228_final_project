@@ -2,10 +2,10 @@ import numpy as np
 import cost_functions
 
 
-# sample = {'s':val, 'a': val, 'r': val, 'sp': val}
-def Q_learning(Q, sample, gamma = .5, lr = .5):
-    Q[sample['s'],sample['a']] = ((1-lr)*Q[sample['s'],sample['a']]
-                                  + lr*(-1*sample['r'] + gamma*Q[sample['sp'],:].max()))
+def Q_learning(ag, sample, gamma = .5, lr = .5):
+    # print(f"sample: {sample}")
+    ag.Q[sample['s'],sample['a']] = ((1-lr)*ag.Q[sample['s'],sample['a']]
+                                  + lr*(-1*sample['r'] + gamma*ag.Q[sample['sp'],:].max()))
 
 
 def random_exploration(agents):
@@ -47,16 +47,18 @@ def random_exploration(agents):
             step_size = 1  # right now we are only stepping to adjacent grid squares
             random_step = step_size * step_list[step_index]
             ag.move(random_step)
-            # grid_world_to_state((grid_length_x / grid_res,
-            #                      grid_length_y / grid_res),
-            #                     *ag.pos)
-            # TODO: convert new state value to linear index, as above. Perhaps we should store this in the agent directly?
+            state_prime = grid_world_to_state((grid_length_x,
+                                                grid_length_y),
+                                                *ag.pos)
 
             new_cost = cost_functions.cost_to_destination(agents)
             cost_difference = new_cost - baseline_cost
 
-            action = step_index
-            ag.Q[state, action] = cost_difference
+            sample = {'s': state, 'a': step_index,
+                      'r': cost_difference, 'sp': state_prime}
+            # action = step_index
+            Q_learning(ag, sample)
+            # ag.Q[state, action] = cost_difference
 
             # Update Q somewhere around here, on each exploration step
             # We'll need to convert 2D grid states to linear index of states
@@ -70,7 +72,6 @@ def random_exploration(agents):
     depends on agent states, not the actions themselves. Do each action to get a new cost, and subtract this cost
     from the baseline to get the incremental cost associated with that individual agent
     '''
-    # return Q
 
 def grid_world_to_state(world_shape, px, py, res=.1):
     update_x = int(px / res)
@@ -82,11 +83,12 @@ def grid_world_to_state(world_shape, px, py, res=.1):
 
 def state_to_grid_world(world_shape, state, res=.1):
     update_world_shape = (int(world_shape[0] / res), int(world_shape[1] / res))
-    pos = np.unravel_index(state, update_world_shape) * .1  # pos = (x,y) in true world coordinates
-
+    pos = np.array(np.unravel_index(state, update_world_shape))
+    pos[0] *= res
+    pos[1] *= res
     return pos
 
-def approximate_Q(agents, Q):
+def approximate_Q(agents):
     '''
     We won't be able to reach every action from every state based purely on random exploration.
     Because we are using norms for our cost function, we know that every visited state-action pair in Q will
@@ -96,31 +98,33 @@ def approximate_Q(agents, Q):
     the existing data that we collected. The simplest method of this approximation is nearest-neighbor (k=1).
     '''
 
-    (num_agents, num_states, num_actions) = Q.shape
+    (num_states, num_actions) = agents[0].Q.shape
     for idx, ag in enumerate(agents):
         for s in range(num_states):
             for a in range(num_actions):
 
                 if ag.Q[s, a] == 0:
-                    current_world_coords = grid_world_to_state(world_shape,
+                    current_world_coords = state_to_grid_world((ag.map_x/ag.res,
+                                                                ag.map_y/ag.res),
                                                                s)  # TODO: decide world shape to pass in here
-                    possible_neighbors = [s for s in range(num_states) if ag.Q(s, a) != 0]
+                    possible_neighbors = [s for s in range(num_states) if ag.Q[s, a] != 0]
                     num_possible_neighbors = len(possible_neighbors)
                     distances = np.zeros(num_possible_neighbors)
                     for i in range(num_possible_neighbors):
-                        neighbor_world_coords = state_to_grid_world(possible_neighbors[i])
+                        neighbor_world_coords = state_to_grid_world((ag.map_x/ag.res,
+                                                                    ag.map_y/ag.res),
+                                                                    possible_neighbors[i])
                         distances[i] = np.linalg.norm(current_world_coords - neighbor_world_coords)
 
                     best_neighbor = np.argmin(distances)
-                    ag.Q[s, a] = ag.Q(best_neighbor, a)
+                    ag.Q[s, a] = ag.Q[best_neighbor, a]
 
-                    # TODO: Implement nearest neighbors (see textbook Algorithm 8.2) -- Done?
-
-    return Q
 
 def Q_main(agents):
+    print("EXPLORING!")
     random_exploration(agents)
-    # Q = approximate_Q(agents, Q)
+    print("NEIGHBORS!")
+    approximate_Q(agents)
 
     '''
     We have two options here: 
@@ -152,13 +156,31 @@ def Q_main(agents):
             hard problem for full project credit. Pick the way that makes your life easier. 
 
     '''
-
+    print("POLICY!")
     # Option 1: Find fixed policy from Q
     for ag in agents:
         for s in range(ag.num_states):
             best_action = np.argmax(ag.Q[s, :])
             ag.Pi[s] = best_action  # this indexes the action in the list of action moves
+    print("EXECUTE!")
+    execute_policy(agents)
 
+
+def execute_policy(agents):
+    # reset agents
+    for ag in agents:
+        ag.pos = ag.ini_pos.copy()
+        ag.traj = np.array([ag.ini_pos.copy()])
+    # simulate
+    step_list = [np.array([agents[0].res, 0.0]), np.array([-agents[0].res, 0.0]),
+                 np.array([0.0, agents[0].res]), np.array([0.0, -agents[0].res])]
+    cost = cost_functions.cost_to_destination(agents)
+    while cost > 1:
+        for ag in agents:
+            state = grid_world_to_state((ag.map_x, ag.map_y), *ag.pos)
+            step_idx = ag.Pi[state]
+            ag.move(step_list[step_idx])
+        cost = cost_functions.cost_to_destination(agents)
 
 def hooke_jeeves(agents):
     step = 0.1
@@ -166,9 +188,7 @@ def hooke_jeeves(agents):
                  np.array([0.0, step]), np.array([0.0, -step])]
     # base cost
     best_cost = cost_functions.cost_to_destination(agents)
-    count = 0
     while best_cost > 1:
-        count += 1
         for idx, a in enumerate(agents):
             best_step = np.array([0.0, 0.0])
             # step in each direction
@@ -182,4 +202,3 @@ def hooke_jeeves(agents):
                     best_step = s
             a.move(best_step, True, True)
             best_cost = cost_functions.cost_to_destination(agents)
-    print(count)
