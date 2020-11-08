@@ -13,6 +13,7 @@ def print_agents(agents):
         print(f"{idx}\t{a.pos}\t{a.des_pos}")
 
 def plot_agents(agents):
+    plt.figure()
     for a in agents:
         plt.plot(a.ini_pos[0], a.ini_pos[1], 'bo')
         plt.plot(a.traj[:,0], a.traj[:,1])
@@ -29,7 +30,7 @@ def main():
     #agent_count = len(x)
     #plt.plot(x,y)
 
-    agent_count = 12
+    agent_count = 2
     agents = [0.0 for _ in range(agent_count)]
 
     pos_array = np.zeros((len(agents), 2))

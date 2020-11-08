@@ -1,8 +1,31 @@
 import numpy as np
 import cost_functions
 from sklearn.neighbors import NearestNeighbors
-import networkx as nx
 import time
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+
+def plot_reward(ag, title, filename):
+    dir_list = [np.array([1.0, 0.0]), np.array([-1.0, 0.0]),
+                 np.array([0.0, 1.0]), np.array([0.0, -1.0])]
+    M = np.zeros((ag.map_x, ag.map_y))
+    X = np.arange(0,ag.map_x,1)
+    Y = np.arange(0, ag.map_y, 1)
+    dirx = np.zeros((ag.map_x, ag.map_y))
+    diry = np.zeros((ag.map_x, ag.map_y))
+    # load into matrices
+    for i in range(ag.num_states):
+        pos = state_to_grid_world((ag.map_x, ag.map_y), i)
+        M[pos[0],pos[1]] = np.max(ag.Q[i,:])
+        action_idx = np.argmax(ag.Q[i,:])
+        dirx[pos[0],pos[1]], diry[pos[0],pos[1]] = dir_list[action_idx]
+    # Plot
+    plt.figure()
+    cp = plt.contourf(X, Y, M, cmap=cm.get_cmap("cool"))
+    plt.quiver(X,Y, dirx,diry)
+    plt.colorbar(cp)
+    plt.title(title)
+    plt.savefig(f'plots/contours/{filename}')
 
 
 def Q_learning(ag, sample, gamma = .5, lr = .5):
@@ -36,7 +59,7 @@ def random_exploration(agents):
     num_actions = 4
     # Q = np.zeros([len(agents), num_states, num_actions])  # Q[i, :, :] is Q matrix for the ith agent
 
-    k_max = 50000  # number of exploration steps/iterations; we should experiment with this value
+    k_max = 10000  # number of exploration steps/iterations; we should experiment with this value
     
     for k in range(k_max):
         for idx, ag in enumerate(agents):
@@ -164,8 +187,10 @@ def approximate_Q(agents):
 def Q_main(agents):
     print("EXPLORING!")
     random_exploration(agents)
-#    print("NEIGHBORS!")
-#    approximate_Q(agents)
+    print("NEIGHBORS!")
+    approximate_Q(agents)
+    for i in range(len(agents)):
+        plot_reward(agents[i], f"Reward Plot for Agent {i}", f"agent{i}.png")
 
     '''
     We have two options here: 
@@ -197,14 +222,14 @@ def Q_main(agents):
             hard problem for full project credit. Pick the way that makes your life easier. 
 
     '''
-#    print("POLICY!")
-#    # Option 1: Find fixed policy from Q
-#    for ag in agents:
-#        for s in range(ag.num_states):
-#            best_action = np.argmax(ag.Q[s, :])
-#            ag.Pi[s] = best_action  # this indexes the action in the list of action moves
-#    print("EXECUTE!")
-#    execute_policy(agents)
+    print("POLICY!")
+    # Option 1: Find fixed policy from Q
+    for ag in agents:
+       for s in range(ag.num_states):
+           best_action = np.argmax(ag.Q[s, :])
+           ag.Pi[s] = best_action  # this indexes the action in the list of action moves
+    print("EXECUTE!")
+    execute_policy(agents)
 
 
 def execute_policy(agents):
