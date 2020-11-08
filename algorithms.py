@@ -1,6 +1,8 @@
 import numpy as np
 import cost_functions
 from sklearn.neighbors import NearestNeighbors
+import networkx as nx
+import time
 
 
 def Q_learning(ag, sample, gamma = .5, lr = .5):
@@ -34,7 +36,8 @@ def random_exploration(agents):
     num_actions = 4
     # Q = np.zeros([len(agents), num_states, num_actions])  # Q[i, :, :] is Q matrix for the ith agent
 
-    k_max = 10000  # number of exploration steps/iterations; we should experiment with this value
+    k_max = 50000  # number of exploration steps/iterations; we should experiment with this value
+    
     for k in range(k_max):
         for idx, ag in enumerate(agents):
             baseline_cost = cost_functions.cost_to_destination(agents)
@@ -98,49 +101,71 @@ def approximate_Q(agents):
     After exploration, we know that any Q(s,a)=0 has not been visited, and we should approximate this entry with
     the existing data that we collected. The simplest method of this approximation is nearest-neighbor (k=1).
     '''
-    full_map = [[agents[0].res*i,agents[0].res*j]
-                    for j in range(agents[0].map_y)
-                    for i in range(agents[0].map_x)]
-    (num_states, num_actions) = agents[0].Q.shape
-    for idx, ag in enumerate(agents):
-        print(f"idx: {idx}")
-        for s in range(num_states):
-            for a in range(num_actions):
+    x = int(agents[0].map_x/agents[0].res)
+    y = int(agents[0].map_y/agents[0].res)
+    num_states, num_actions = agents[0].Q.shape
+    world_shape = (x,y)
+    
+    start_time = time.time()
+    Q_all = agents[0].Q[:,:,np.newaxis]
+    for r in range(1,len(agents)):
+        Q_all = np.concatenate((Q_all,agents[r].Q[:,:,np.newaxis]),axis=2)
+    
+    #TODO: code breaks if not all robots have moved in all directions at least once
+    #TODO: reason is that code expects at least on action with non-zero reward from each robot to have been taken
+    for action in range(0,num_actions):
+        states_robots = np.argwhere(Q_all[:,action,:] != 0) # gets all states for all agents for a given action
+        states_robots = states_robots[np.argsort(states_robots[:, 1])] # sort them by robot id
+        
+        explored_coords = np.array(np.unravel_index(states_robots, world_shape,'C')).T[0] # obtain world coords
 
-                if ag.Q[s, a] == 0:
-                    current_world_coords = state_to_grid_world((ag.map_x,ag.map_y), s)
-                    neigh_flag = False
-                    radius_multiplier = 1
-                    while not neigh_flag:
-                        neigh_model = NearestNeighbors(radius=ag.res*radius_multiplier)
-                        neigh_model.fit(full_map)
-                        rng = neigh_model.radius_neighbors([current_world_coords], sort_results=True)
-                        radius_multiplier += 1
-                        for neigh_idx in rng[1][0]:
-                            neigh_coord = full_map[neigh_idx]
-                            neigh_state = grid_world_to_state((ag.map_x,ag.map_y), *neigh_coord)
-                            if ag.Q[neigh_state, a] != 0:
-                                ag.Q[s, a] = ag.Q[neigh_state, a]
-                                neigh_flag = True
 
-                    # possible_neighbors = [s for s in range(num_states) if ag.Q[s, a] != 0]
-                    # num_possible_neighbors = len(possible_neighbors)
-                    # distances = np.zeros(num_possible_neighbors)
-                    # for i in range(num_possible_neighbors):
-                    #     neighbor_world_coords = state_to_grid_world((ag.map_x/ag.res,
-                    #                                             ag.map_y/ag.res),
-                    #                                             possible_neighbors[i])
-                    #     distances[i] = np.linalg.norm(current_world_coords - neighbor_world_coords)
-                    #
-                    # best_neighbor = np.argmin(distances)
-                    # ag.Q[s, a] = ag.Q[best_neighbor, a]
+        max_num = max(np.bincount(states_robots[:,1])) # get maximum number of samples a single robot might have
+        
+        # calculate indices where padding must be added so vector math can be done
+        change_over = np.where(np.roll(states_robots[:,1],1)!=states_robots[:,1])[0]
+        change_over = np.repeat(change_over,(max_num-np.bincount(states_robots[:,1])))
+        padded_states = np.insert(states_robots[:,0],change_over,0,axis=0).reshape(len(agents),-1)
+        padded_coords = np.insert(explored_coords,change_over,[num_states+1,num_states+1],axis=0)
+
+
+        for state in range(0,num_states):
+    
+        
+            pos = np.array(np.unravel_index(state, world_shape,'C')).reshape(-1,2) # get pos of state currently being examined
+
+            # calculate distances from that state to all sampled states for given action
+            distances = np.linalg.norm(pos-padded_coords,axis=1).reshape(len(agents),-1)
+
+            index_array = np.argmin(distances, axis=1) # find index of smallest distance
+
+            # get corresponding state
+            closest_states = np.take_along_axis(padded_states, np.expand_dims(index_array, axis=1), axis=1).reshape(-1)
+            index = np.arange(0,len(agents),1)
+            
+            sub_Q_all = Q_all[:,action,:]
+            
+            loc_of_reward = np.vstack((index,closest_states))
+            rewards = sub_Q_all[loc_of_reward[1],loc_of_reward[0]]
+            
+            empty = np.where(Q_all[state,action,:] == 0, True, False)
+
+            Q_all[state,action,:] = Q_all[state,action,:] + empty*rewards
+
+    for r in range(0,len(agents)):
+
+        agents[r].Q = Q_all[:,:,r]
+
+    print("--- %s seconds ---" % (time.time() - start_time))
+    print("for loop finished")
+
 
 
 def Q_main(agents):
     print("EXPLORING!")
     random_exploration(agents)
-    print("NEIGHBORS!")
-    # approximate_Q(agents)
+#    print("NEIGHBORS!")
+#    approximate_Q(agents)
 
     '''
     We have two options here: 
@@ -172,14 +197,14 @@ def Q_main(agents):
             hard problem for full project credit. Pick the way that makes your life easier. 
 
     '''
-    print("POLICY!")
-    # Option 1: Find fixed policy from Q
-    for ag in agents:
-        for s in range(ag.num_states):
-            best_action = np.argmax(ag.Q[s, :])
-            ag.Pi[s] = best_action  # this indexes the action in the list of action moves
-    print("EXECUTE!")
-    execute_policy(agents)
+#    print("POLICY!")
+#    # Option 1: Find fixed policy from Q
+#    for ag in agents:
+#        for s in range(ag.num_states):
+#            best_action = np.argmax(ag.Q[s, :])
+#            ag.Pi[s] = best_action  # this indexes the action in the list of action moves
+#    print("EXECUTE!")
+#    execute_policy(agents)
 
 
 def execute_policy(agents):
