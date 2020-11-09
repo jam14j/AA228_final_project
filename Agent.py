@@ -20,8 +20,8 @@ class Agent():
 
         if noise_flag:
             # noise_step += np.random.normal(0,0.1*np.linalg.norm(step),len(step))
-            p = np.random.randint(1, 11)
-            if p == 10:
+            p = np.random.randint(1, 10)
+            if p == 1:
                 noise_step = -1 * np.copy(step)
         if wind_flag:
             # noise_step += np.array([

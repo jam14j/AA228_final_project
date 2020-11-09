@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import algorithms as alg
 from snowflake import koch_snowflake
+from time import time
 
 # Set random seed for reproducible results
 np.random.seed(1)
@@ -14,9 +15,10 @@ def print_agents(agents):
 
 def plot_agents(agents):
     plt.figure()
-    for a in agents:
+    labels = [f"Agent {i}" for i in range(len(agents))]
+    for i, a in enumerate(agents):
         plt.plot(a.ini_pos[0], a.ini_pos[1], 'bo')
-        plt.plot(a.traj[:,0], a.traj[:,1])
+        plt.plot(a.traj[:,0], a.traj[:,1], label=labels[i])
         plt.plot(a.des_pos[0], a.des_pos[1], 'r*')
     plt.xlabel("x")
     plt.ylabel("y")
@@ -26,11 +28,12 @@ def plot_agents(agents):
 
 def main():
     # snowflake
-    #x, y = koch_snowflake(order=2)
-    #agent_count = len(x)
+    # x, y = koch_snowflake(order=2)
+    # agent_count = len(x)
+    # print(agent_count)
     #plt.plot(x,y)
 
-    agent_count = 2
+    agent_count = 12
     agents = [0.0 for _ in range(agent_count)]
 
     pos_array = np.zeros((len(agents), 2))
@@ -58,8 +61,11 @@ def main():
         a.pos += np.array([min_value, min_value])
         a.des_pos += np.array([min_value, min_value])
 
-    # alg.hooke_jeeves(agents)
-    alg.Q_main(agents)
+    t0 = time()
+    alg.hooke_jeeves(agents)
+    t1 = time()
+    print(f"time= {t1-t0} seconds")
+    # alg.Q_main(agents)
     plot_agents(agents)
 
 if __name__ == "__main__":

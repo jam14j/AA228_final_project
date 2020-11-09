@@ -25,6 +25,9 @@ def plot_reward(ag, title, filename):
     plt.quiver(X,Y, dirx,diry)
     plt.colorbar(cp)
     plt.title(title)
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.axis("equal")
     plt.savefig(f'plots/contours/{filename}')
 
 
@@ -59,7 +62,7 @@ def random_exploration(agents):
     num_actions = 4
     # Q = np.zeros([len(agents), num_states, num_actions])  # Q[i, :, :] is Q matrix for the ith agent
 
-    k_max = 10000  # number of exploration steps/iterations; we should experiment with this value
+    k_max = 50000  # number of exploration steps/iterations; we should experiment with this value
     
     for k in range(k_max):
         for idx, ag in enumerate(agents):
@@ -188,9 +191,9 @@ def Q_main(agents):
     print("EXPLORING!")
     random_exploration(agents)
     print("NEIGHBORS!")
-    approximate_Q(agents)
+    # approximate_Q(agents)
     for i in range(len(agents)):
-        plot_reward(agents[i], f"Reward Plot for Agent {i}", f"agent{i}.png")
+        plot_reward(agents[i], f"Cost Plot for Agent {i}", f"agent{i}.png")
 
     '''
     We have two options here: 
@@ -247,7 +250,7 @@ def execute_policy(agents):
         for ag in agents:
             state = grid_world_to_state((ag.map_x, ag.map_y), *ag.pos)
             step_idx = int(ag.Pi[state])
-            ag.move(step_list[step_idx])
+            ag.move(step_list[step_idx], False, False)
         cost = cost_functions.cost_to_destination(agents)
 
 def hooke_jeeves(agents):

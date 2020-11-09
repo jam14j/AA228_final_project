@@ -130,3 +130,4 @@ dmypy.json
 
 # Personal - by Juan
 .idea/
+plot_legend.py
